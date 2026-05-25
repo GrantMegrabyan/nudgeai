@@ -85,6 +85,9 @@ async fn run_command(name: &str, config: &ProviderConfig, prompt: &str) -> Resul
     let mut command = Command::new(&config.command);
     match name {
         "claude" => {
+            if let Some(model) = &config.model {
+                command.arg("--model").arg(model);
+            }
             command
                 .arg("-p")
                 .arg(prompt)
@@ -92,6 +95,9 @@ async fn run_command(name: &str, config: &ProviderConfig, prompt: &str) -> Resul
                 .arg("json");
         }
         "codex" => {
+            if let Some(model) = &config.model {
+                command.arg("--model").arg(model);
+            }
             command.arg("exec").arg(prompt);
         }
         other => anyhow::bail!("unsupported_provider:{other}"),

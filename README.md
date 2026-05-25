@@ -6,6 +6,13 @@ randomized, benign prompt to subscription-backed AI CLIs.
 The first version supports Claude Code and OpenAI Codex CLI. It is intentionally
 designed for subscription login flows, not API keys.
 
+By default it pins the cheapest configured provider tiers:
+
+- Claude: `claude-haiku-4-5-20251001`
+- Codex: `gpt-5-nano`
+
+You can override either value in `config.yaml` with the provider `model` field.
+
 ## Defaults
 
 ```yaml

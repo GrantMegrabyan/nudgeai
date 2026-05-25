@@ -37,6 +37,7 @@ pub struct ProvidersConfig {
 pub struct ProviderConfig {
     pub enabled: bool,
     pub command: String,
+    pub model: Option<String>,
     #[serde(with = "humantime_serde")]
     pub timeout: Duration,
     pub max_output_bytes: usize,
@@ -83,11 +84,13 @@ impl Default for ProvidersConfig {
             claude: ProviderConfig {
                 enabled: true,
                 command: "claude".to_string(),
+                model: Some("claude-haiku-4-5-20251001".to_string()),
                 ..ProviderConfig::default()
             },
             codex: ProviderConfig {
                 enabled: true,
                 command: "codex".to_string(),
+                model: Some("gpt-5-nano".to_string()),
                 ..ProviderConfig::default()
             },
         }
@@ -99,6 +102,7 @@ impl Default for ProviderConfig {
         Self {
             enabled: false,
             command: String::new(),
+            model: None,
             timeout: Duration::from_secs(60),
             max_output_bytes: 16 * 1024,
         }
@@ -150,6 +154,13 @@ impl Config {
         for (name, provider) in self.enabled_providers() {
             if provider.command.trim().is_empty() {
                 bail!("provider {name} is enabled but has an empty command");
+            }
+            if provider
+                .model
+                .as_ref()
+                .is_some_and(|model| model.trim().is_empty())
+            {
+                bail!("provider {name} model must be non-empty when set");
             }
             if provider.timeout.is_zero() {
                 bail!("provider {name} timeout must be greater than zero");
@@ -250,5 +261,15 @@ mod tests {
         config.providers.claude.command = String::new();
         let error = config.validate().unwrap_err().to_string();
         assert!(error.contains("claude"));
+    }
+
+    #[test]
+    fn default_models_are_cheapest_provider_tiers() {
+        let config = Config::default();
+        assert_eq!(
+            config.providers.claude.model.as_deref(),
+            Some("claude-haiku-4-5-20251001")
+        );
+        assert_eq!(config.providers.codex.model.as_deref(), Some("gpt-5-nano"));
     }
 }

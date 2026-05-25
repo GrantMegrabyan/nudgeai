@@ -10,6 +10,12 @@ The project must use subscription login state, not OpenAI or Anthropic API keys.
 Provider CLIs are external executables; do not call private provider APIs or try
 to reverse-engineer subscription internals.
 
+Default provider models should stay on the cheapest practical tiers unless the
+user explicitly changes them:
+
+- Claude Code: `claude-haiku-4-5-20251001`
+- OpenAI Codex CLI: `gpt-5-nano`
+
 ## Core Behavior
 
 - `nudgeai run-once` executes one nudge cycle.
@@ -39,6 +45,8 @@ them. Do not rotate or load-balance between providers.
 - Language: Rust.
 - Prefer small, explicit modules over broad abstractions.
 - Do not shell-interpolate provider commands; use structured process arguments.
+- Pass provider model selections with CLI flags, not shell config: Claude Code
+  uses `--model`, and Codex CLI uses global `--model` before `exec`.
 - Keep logs metadata-only by default: provider, timestamps, prompt hash/template
   id, duration, exit code, and error category.
 - Do not store full prompts or provider responses unless a future explicit debug

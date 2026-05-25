@@ -41,11 +41,13 @@ providers:
   claude:
     enabled: true
     command: {}
+    model: claude-haiku-4-5-20251001
     timeout: 5s
     max_output_bytes: 1024
   codex:
     enabled: true
     command: {}
+    model: gpt-5-nano
     timeout: 5s
     max_output_bytes: 1024
 runtime:
@@ -75,14 +77,17 @@ fn run_once_calls_all_enabled_providers_and_logs_metadata() {
         temp.path(),
         "claude-ok",
         &format!(
-            "#!/bin/sh\nprintf claude >> {}/claude\n",
+            "#!/bin/sh\nprintf '%s\\n' \"$*\" >> {}/claude\n",
             calls_dir.display()
         ),
     );
     let codex = fake_provider(
         temp.path(),
         "codex-ok",
-        &format!("#!/bin/sh\nprintf codex >> {}/codex\n", calls_dir.display()),
+        &format!(
+            "#!/bin/sh\nprintf '%s\\n' \"$*\" >> {}/codex\n",
+            calls_dir.display()
+        ),
     );
 
     let state_path = temp.path().join("state.json");
@@ -103,14 +108,10 @@ fn run_once_calls_all_enabled_providers_and_logs_metadata() {
         "stderr: {}",
         String::from_utf8_lossy(&output.stderr)
     );
-    assert_eq!(
-        fs::read_to_string(calls_dir.join("claude")).unwrap(),
-        "claude"
-    );
-    assert_eq!(
-        fs::read_to_string(calls_dir.join("codex")).unwrap(),
-        "codex"
-    );
+    let claude_args = fs::read_to_string(calls_dir.join("claude")).unwrap();
+    let codex_args = fs::read_to_string(calls_dir.join("codex")).unwrap();
+    assert!(claude_args.contains("--model claude-haiku-4-5-20251001 -p"));
+    assert!(codex_args.contains("--model gpt-5-nano exec"));
 
     let log = fs::read_to_string(log_path).unwrap();
     assert!(log.contains("\"provider\":\"claude\""));
