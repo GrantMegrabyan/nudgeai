@@ -53,6 +53,10 @@ them. Do not rotate or load-balance between providers.
 - Do not shell-interpolate provider commands; use structured process arguments.
 - Pass provider model selections with CLI flags, not shell config: Claude Code
   uses `--model`, and Codex CLI uses global `--model` before `exec`.
+- Codex requires `--skip-git-repo-check` when running outside a git repo (e.g.
+  in Docker). This flag belongs to the `exec` subcommand, not the global flags:
+  `codex --model <m> exec --skip-git-repo-check <prompt>`. Placing it before
+  `exec` produces "unexpected argument" error (exit 2).
 - Run logs intentionally include the generated prompt and bounded stdout/stderr
   response text so provider failures can be diagnosed from the JSONL log.
 - Keep captured provider output bounded by `max_output_bytes`.
@@ -73,6 +77,14 @@ Docker deployment uses persistent volumes for:
 - daemon state
 - metadata logs
 - provider subscription login state
+
+Provider auth paths and their required volumes:
+
+- Claude: `/root/.claude` → `nudgeai-claude:/root/.claude`
+- Codex: `/root/.codex` → `nudgeai-codex:/root/.codex`
+
+Both volumes must exist in `docker-compose.yml` before running auth bootstrap,
+or credentials written by `docker compose run --rm` are discarded on exit.
 
 Auth bootstrap should happen with:
 
