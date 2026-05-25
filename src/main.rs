@@ -93,7 +93,8 @@ fn init_auth() -> Result<()> {
     println!("  docker compose run --rm --entrypoint codex nudgeai login");
     println!();
     println!("Those commands persist provider auth in the configured Docker volumes.");
-    println!("Default config path: {DEFAULT_CONFIG_PATH}");
+    println!("Built-in default config path: {DEFAULT_CONFIG_PATH}");
+    println!("Docker sets NUDGEAI_CONFIG=/etc/nudgeai/config.yaml.");
     Ok(())
 }
 
@@ -149,11 +150,14 @@ async fn run_cycle(config: &Config) -> Result<Vec<provider::RunRecord>> {
         info!("running provider={name}");
         let record = provider::run_provider(name, provider_config, &prompt).await;
         if record.success {
-            info!("provider={name} completed successfully");
+            info!(
+                "provider={name} completed successfully stdout={:?}",
+                record.stdout
+            );
         } else {
             warn!(
-                "provider={name} failed error_category={:?}",
-                record.error_category
+                "provider={name} failed exit_code={:?} error_category={:?} stderr={:?} stdout={:?}",
+                record.exit_code, record.error_category, record.stderr, record.stdout
             );
         }
         provider::append_run_record(&config.runtime.run_log_path, &record)?;

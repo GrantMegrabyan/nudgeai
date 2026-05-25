@@ -20,10 +20,22 @@ schedule:
   interval: 1h
   jitter_percent: 20
   minimum_interval: 30m
+
+runtime:
+  state_path: ./daemon-state.json
+  run_log_path: ./logs/runs.jsonl
 ```
 
 With the default schedule, each cycle runs between 48 minutes and 1 hour 12
 minutes after the previous cycle. Every cycle nudges all enabled providers.
+
+The default config path is `./config.yaml`, so a local run can start with:
+
+```sh
+cp config.example.yaml config.yaml
+cargo run -- validate-config
+cargo run -- run-once
+```
 
 ## Commands
 
@@ -61,10 +73,18 @@ HEALTHCHECK --interval=5m --timeout=10s --start-period=1m --retries=3 \
 The healthcheck validates config, required provider binaries, and freshness of
 the daemon state file. It does not send prompts or require network access.
 
+## Logging
+
+Run logs are written as JSONL. Each record includes provider, timestamps, prompt
+template id/hash, the full generated prompt, bounded stdout/stderr response
+text, duration, exit code, and error category.
+
+`max_output_bytes` controls how much stdout and stderr are captured per provider
+run.
+
 ## Safety
 
 - NudgeAI rejects `ANTHROPIC_API_KEY` and `OPENAI_API_KEY` by default.
 - Prompts are short, benign, and request minimal output.
-- Logs store metadata only, not full prompts or model responses.
 - Jitter is for avoiding synchronized schedules, not for bypassing provider
   limits or hiding abusive behavior.

@@ -68,7 +68,7 @@ prompts:
 }
 
 #[test]
-fn run_once_calls_all_enabled_providers_and_logs_metadata() {
+fn run_once_calls_all_enabled_providers_and_logs_prompt_and_response() {
     let temp = TempDir::new().unwrap();
     let calls_dir = temp.path().join("calls");
     fs::create_dir(&calls_dir).unwrap();
@@ -85,7 +85,7 @@ fn run_once_calls_all_enabled_providers_and_logs_metadata() {
         temp.path(),
         "codex-ok",
         &format!(
-            "#!/bin/sh\nprintf '%s\\n' \"$*\" >> {}/codex\n",
+            "#!/bin/sh\nprintf '%s\\n' \"$*\" >> {}/codex\nprintf 'codex response'\nprintf 'codex warning' >&2\n",
             calls_dir.display()
         ),
     );
@@ -117,7 +117,42 @@ fn run_once_calls_all_enabled_providers_and_logs_metadata() {
     assert!(log.contains("\"provider\":\"claude\""));
     assert!(log.contains("\"provider\":\"codex\""));
     assert!(log.contains("\"prompt_hash\""));
-    assert!(!log.contains("Reply with exactly one short sentence"));
+    assert!(log.contains("\"prompt\":\"Reply with exactly one short sentence"));
+    assert!(log.contains("\"stdout\":\"codex response\""));
+    assert!(log.contains("\"stderr\":\"codex warning\""));
+}
+
+#[test]
+fn run_once_logs_descriptive_provider_failures() {
+    let temp = TempDir::new().unwrap();
+    let claude = fake_provider(temp.path(), "claude-ok", "#!/bin/sh\nexit 0\n");
+    let codex = fake_provider(
+        temp.path(),
+        "codex-fail",
+        "#!/bin/sh\nprintf 'codex stderr details' >&2\nexit 42\n",
+    );
+
+    let state_path = temp.path().join("state.json");
+    let log_path = temp.path().join("runs.jsonl");
+    let config_path = write_config(temp.path(), &claude, &codex, &state_path, &log_path);
+
+    let output = Command::new(bin())
+        .arg("--config")
+        .arg(config_path)
+        .arg("run-once")
+        .env_remove("ANTHROPIC_API_KEY")
+        .env_remove("OPENAI_API_KEY")
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("non_zero_exit:42"), "{stdout}");
+    assert!(stdout.contains("codex stderr details"), "{stdout}");
+
+    let log = fs::read_to_string(log_path).unwrap();
+    assert!(log.contains("\"error_category\":\"non_zero_exit:42\""));
+    assert!(log.contains("\"stderr\":\"codex stderr details\""));
 }
 
 #[test]

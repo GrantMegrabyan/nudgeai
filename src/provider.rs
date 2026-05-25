@@ -11,10 +11,13 @@ pub struct RunRecord {
     pub provider: String,
     pub prompt_template_id: String,
     pub prompt_hash: String,
+    pub prompt: String,
     pub duration_ms: u128,
     pub exit_code: Option<i32>,
     pub success: bool,
     pub error_category: Option<String>,
+    pub stdout: String,
+    pub stderr: String,
     pub stdout_truncated: bool,
     pub stderr_truncated: bool,
 }
@@ -34,14 +37,22 @@ pub async fn run_provider(
             provider: name.to_string(),
             prompt_template_id: prompt.template_id.clone(),
             prompt_hash: prompt.prompt_hash.clone(),
+            prompt: prompt.text.clone(),
             duration_ms,
             exit_code: command_result.exit_code,
             success: command_result.exit_code == Some(0),
             error_category: if command_result.exit_code == Some(0) {
                 None
             } else {
-                Some("non_zero_exit".to_string())
+                Some(format!(
+                    "non_zero_exit:{}",
+                    command_result
+                        .exit_code
+                        .map_or_else(|| "signal".to_string(), |code| code.to_string())
+                ))
             },
+            stdout: command_result.stdout,
+            stderr: command_result.stderr,
             stdout_truncated: command_result.stdout_truncated,
             stderr_truncated: command_result.stderr_truncated,
         },
@@ -50,10 +61,13 @@ pub async fn run_provider(
             provider: name.to_string(),
             prompt_template_id: prompt.template_id.clone(),
             prompt_hash: prompt.prompt_hash.clone(),
+            prompt: prompt.text.clone(),
             duration_ms,
             exit_code: None,
             success: false,
             error_category: Some(error.to_string()),
+            stdout: String::new(),
+            stderr: String::new(),
             stdout_truncated: false,
             stderr_truncated: false,
         },
@@ -77,6 +91,8 @@ pub fn append_run_record(path: &Path, record: &RunRecord) -> Result<()> {
 
 struct CommandResult {
     exit_code: Option<i32>,
+    stdout: String,
+    stderr: String,
     stdout_truncated: bool,
     stderr_truncated: bool,
 }
@@ -113,11 +129,29 @@ async fn run_command(name: &str, config: &ProviderConfig, prompt: &str) -> Resul
         .map_err(|_| anyhow::anyhow!("timeout"))?
         .with_context(|| format!("failed_to_spawn:{}", config.command))?;
 
+    let (stdout, stdout_truncated) = bounded_output(&output.stdout, config.max_output_bytes);
+    let (stderr, stderr_truncated) = bounded_output(&output.stderr, config.max_output_bytes);
+
     Ok(CommandResult {
         exit_code: output.status.code(),
-        stdout_truncated: output.stdout.len() > config.max_output_bytes,
-        stderr_truncated: output.stderr.len() > config.max_output_bytes,
+        stdout,
+        stderr,
+        stdout_truncated,
+        stderr_truncated,
     })
+}
+
+fn bounded_output(bytes: &[u8], max_bytes: usize) -> (String, bool) {
+    let truncated = bytes.len() > max_bytes;
+    let visible = if truncated {
+        &bytes[..max_bytes]
+    } else {
+        bytes
+    };
+    (
+        String::from_utf8_lossy(visible).trim().to_string(),
+        truncated,
+    )
 }
 
 pub fn provider_binaries_exist(providers: Vec<(&'static str, &ProviderConfig)>) -> Result<()> {

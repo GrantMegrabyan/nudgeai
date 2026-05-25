@@ -37,6 +37,10 @@ schedule:
 This creates delays from 48 minutes to 1 hour 12 minutes by default. The
 30-minute guardrail prevents accidental overly-frequent scheduling.
 
+Default local paths are `./config.yaml`, `./daemon-state.json`, and
+`./logs/runs.jsonl`. Docker explicitly overrides those with mounted `/etc`,
+`/var/lib`, and `/var/log` paths.
+
 When multiple providers are enabled, each scheduled cycle must nudge all of
 them. Do not rotate or load-balance between providers.
 
@@ -47,10 +51,11 @@ them. Do not rotate or load-balance between providers.
 - Do not shell-interpolate provider commands; use structured process arguments.
 - Pass provider model selections with CLI flags, not shell config: Claude Code
   uses `--model`, and Codex CLI uses global `--model` before `exec`.
-- Keep logs metadata-only by default: provider, timestamps, prompt hash/template
-  id, duration, exit code, and error category.
-- Do not store full prompts or provider responses unless a future explicit debug
-  mode is added.
+- Run logs intentionally include the generated prompt and bounded stdout/stderr
+  response text so provider failures can be diagnosed from the JSONL log.
+- Keep captured provider output bounded by `max_output_bytes`.
+- `tracing_subscriber::fmt` currently emits process logs to stdout, so CLI
+  integration tests that assert live warning output should inspect stdout.
 - Reject `ANTHROPIC_API_KEY` and `OPENAI_API_KEY` in subscription mode.
 - Healthchecks must not send provider prompts and must not require network
   access.

@@ -18,8 +18,8 @@ providers:
     max_output_bytes: 16384
 
 runtime:
-  state_path: /var/lib/nudgeai/daemon-state.json
-  run_log_path: /var/log/nudgeai/runs.jsonl
+  state_path: ./daemon-state.json
+  run_log_path: ./logs/runs.jsonl
 
 prompts:
   - id: tiny_fact

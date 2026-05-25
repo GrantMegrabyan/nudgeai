@@ -5,6 +5,8 @@ services:
     restart: unless-stopped
     environment:
       NUDGEAI_CONFIG: /etc/nudgeai/config.yaml
+      NUDGEAI_STATE_PATH: /var/lib/nudgeai/daemon-state.json
+      NUDGEAI_RUN_LOG_PATH: /var/log/nudgeai/runs.jsonl
       NUDGEAI_LOG_LEVEL: info
     volumes:
       - ./config.example.yaml:/etc/nudgeai/config.yaml:ro

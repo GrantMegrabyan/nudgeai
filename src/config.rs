@@ -2,9 +2,9 @@ use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 use std::{env, fs, path::PathBuf, time::Duration};
 
-pub const DEFAULT_CONFIG_PATH: &str = "/etc/nudgeai/config.yaml";
-pub const DEFAULT_STATE_PATH: &str = "/var/lib/nudgeai/daemon-state.json";
-pub const DEFAULT_RUN_LOG_PATH: &str = "/var/log/nudgeai/runs.jsonl";
+pub const DEFAULT_CONFIG_PATH: &str = "./config.yaml";
+pub const DEFAULT_STATE_PATH: &str = "./daemon-state.json";
+pub const DEFAULT_RUN_LOG_PATH: &str = "./logs/runs.jsonl";
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields)]
@@ -253,6 +253,20 @@ mod tests {
         assert_eq!(config.schedule.interval, Duration::from_secs(3600));
         assert_eq!(config.schedule.jitter_percent, 20);
         assert_eq!(config.schedule.minimum_interval, Duration::from_secs(1800));
+    }
+
+    #[test]
+    fn default_paths_are_local_to_current_directory() {
+        let config = Config::default();
+        assert_eq!(DEFAULT_CONFIG_PATH, "./config.yaml");
+        assert_eq!(
+            config.runtime.state_path,
+            PathBuf::from("./daemon-state.json")
+        );
+        assert_eq!(
+            config.runtime.run_log_path,
+            PathBuf::from("./logs/runs.jsonl")
+        );
     }
 
     #[test]
