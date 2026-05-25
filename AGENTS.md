@@ -79,7 +79,7 @@ Auth bootstrap should happen with:
 ```sh
 docker compose run --rm nudgeai init-auth
 docker compose run --rm --entrypoint claude nudgeai auth login
-docker compose run --rm --entrypoint codex nudgeai login
+docker compose run --rm --entrypoint codex nudgeai login --device-auth
 ```
 
 The provider login commands run inside the container so the named volumes keep
