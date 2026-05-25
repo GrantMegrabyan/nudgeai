@@ -14,9 +14,11 @@ services:
       - nudgeai-logs:/var/log/nudgeai
       - nudgeai-root-config:/root/.config
       - nudgeai-claude:/root/.claude
+      - nudgeai-codex:/root/.codex
 
 volumes:
   nudgeai-state:
   nudgeai-logs:
   nudgeai-root-config:
   nudgeai-claude:
+  nudgeai-codex:
