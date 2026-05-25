@@ -111,9 +111,7 @@ fn run_once_calls_all_enabled_providers_and_logs_prompt_and_response() {
     let claude_args = fs::read_to_string(calls_dir.join("claude")).unwrap();
     let codex_args = fs::read_to_string(calls_dir.join("codex")).unwrap();
     assert!(claude_args.contains("--model claude-haiku-4-5-20251001 -p"));
-    assert!(codex_args.contains("--skip-git-repo-check"));
-    assert!(codex_args.contains("--model gpt-5.4-mini"));
-    assert!(codex_args.contains("exec"));
+    assert!(codex_args.contains("--model gpt-5.4-mini exec --skip-git-repo-check"));
 
     let log = fs::read_to_string(log_path).unwrap();
     assert!(log.contains("\"provider\":\"claude\""));

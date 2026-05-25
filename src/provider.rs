@@ -254,7 +254,7 @@ async fn run_command(name: &str, config: &ProviderConfig, prompt: &str) -> Resul
             if let Some(model) = &config.model {
                 command.arg("--model").arg(model);
             }
-            command.arg("--skip-git-repo-check").arg("exec").arg(prompt);
+            command.arg("exec").arg("--skip-git-repo-check").arg(prompt);
         }
         other => anyhow::bail!("unsupported_provider:{other}"),
     }
