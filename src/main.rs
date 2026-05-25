@@ -147,17 +147,23 @@ async fn run_cycle(config: &Config) -> Result<Vec<provider::RunRecord>> {
     let mut records = Vec::new();
 
     for (name, provider_config) in config.enabled_providers() {
-        info!("running provider={name}");
+        info!("running provider={name} prompt={:?}", prompt.text);
         let record = provider::run_provider(name, provider_config, &prompt).await;
         if record.success {
             info!(
-                "provider={name} completed successfully stdout={:?}",
-                record.stdout
+                "provider={name} completed successfully response={:?} {}",
+                record.summary.response,
+                usage_summary(&record.summary)
             );
         } else {
             warn!(
-                "provider={name} failed exit_code={:?} error_category={:?} stderr={:?} stdout={:?}",
-                record.exit_code, record.error_category, record.stderr, record.stdout
+                "provider={name} failed exit_code={:?} error_category={:?} error_status={:?} error_message={:?} response={:?} {}",
+                record.exit_code,
+                record.error_category,
+                record.summary.error_status,
+                record.summary.error_message,
+                record.summary.response,
+                usage_summary(&record.summary)
             );
         }
         provider::append_run_record(&config.runtime.run_log_path, &record)?;
@@ -169,4 +175,29 @@ async fn run_cycle(config: &Config) -> Result<Vec<provider::RunRecord>> {
     }
 
     Ok(records)
+}
+
+fn usage_summary(summary: &provider::ProviderOutputSummary) -> String {
+    let mut parts = Vec::new();
+    if let Some(model) = &summary.model {
+        parts.push(format!("model={model}"));
+    }
+    if let Some(input_tokens) = summary.input_tokens {
+        parts.push(format!("input_tokens={input_tokens}"));
+    }
+    if let Some(output_tokens) = summary.output_tokens {
+        parts.push(format!("output_tokens={output_tokens}"));
+    }
+    if let Some(cache_creation_input_tokens) = summary.cache_creation_input_tokens {
+        parts.push(format!(
+            "cache_creation_input_tokens={cache_creation_input_tokens}"
+        ));
+    }
+    if let Some(cache_read_input_tokens) = summary.cache_read_input_tokens {
+        parts.push(format!("cache_read_input_tokens={cache_read_input_tokens}"));
+    }
+    if let Some(total_cost_usd) = summary.total_cost_usd {
+        parts.push(format!("total_cost_usd={total_cost_usd:.6}"));
+    }
+    parts.join(" ")
 }

@@ -9,9 +9,12 @@ designed for subscription login flows, not API keys.
 By default it pins the cheapest configured provider tiers:
 
 - Claude: `claude-haiku-4-5-20251001`
-- Codex: `gpt-5-nano`
+- Codex: no explicit model, so Codex uses the default supported by the signed-in
+  ChatGPT account
 
 You can override either value in `config.yaml` with the provider `model` field.
+Do not set Codex to `gpt-5-nano` when using ChatGPT account auth; Codex rejects
+that API model for subscription-backed sessions.
 
 ## Defaults
 
@@ -78,6 +81,11 @@ the daemon state file. It does not send prompts or require network access.
 Run logs are written as JSONL. Each record includes provider, timestamps, prompt
 template id/hash, the full generated prompt, bounded stdout/stderr response
 text, duration, exit code, and error category.
+
+Live logs print the prompt before each provider call, then a parsed summary of
+the model response, token usage, model, and cost where the provider exposes it.
+Provider JSON is still stored in the JSONL record's bounded stdout/stderr fields,
+but the console log avoids dumping raw JSON.
 
 `max_output_bytes` controls how much stdout and stderr are captured per provider
 run.

@@ -4,5 +4,6 @@
 *.jsonl
 /.DS_Store
 config.local.yaml
+config.yaml
 daemon-state.json
 logs/

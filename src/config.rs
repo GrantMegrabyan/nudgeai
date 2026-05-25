@@ -90,7 +90,7 @@ impl Default for ProvidersConfig {
             codex: ProviderConfig {
                 enabled: true,
                 command: "codex".to_string(),
-                model: Some("gpt-5-nano".to_string()),
+                model: None,
                 ..ProviderConfig::default()
             },
         }
@@ -161,6 +161,11 @@ impl Config {
                 .is_some_and(|model| model.trim().is_empty())
             {
                 bail!("provider {name} model must be non-empty when set");
+            }
+            if name == "codex" && provider.model.as_deref() == Some("gpt-5-nano") {
+                bail!(
+                    "provider codex model gpt-5-nano is not supported with ChatGPT account auth; remove the model field to use Codex's account-supported default"
+                );
             }
             if provider.timeout.is_zero() {
                 bail!("provider {name} timeout must be greater than zero");
@@ -284,6 +289,14 @@ mod tests {
             config.providers.claude.model.as_deref(),
             Some("claude-haiku-4-5-20251001")
         );
-        assert_eq!(config.providers.codex.model.as_deref(), Some("gpt-5-nano"));
+        assert_eq!(config.providers.codex.model.as_deref(), None);
+    }
+
+    #[test]
+    fn rejects_codex_nano_for_subscription_auth() {
+        let mut config = Config::default();
+        config.providers.codex.model = Some("gpt-5-nano".to_string());
+        let error = config.validate().unwrap_err().to_string();
+        assert!(error.contains("gpt-5-nano is not supported"));
     }
 }

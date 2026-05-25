@@ -14,7 +14,9 @@ Default provider models should stay on the cheapest practical tiers unless the
 user explicitly changes them:
 
 - Claude Code: `claude-haiku-4-5-20251001`
-- OpenAI Codex CLI: `gpt-5-nano`
+- OpenAI Codex CLI: no explicit model by default. ChatGPT-account auth rejects
+  API-style cheap models such as `gpt-5-nano`, so let Codex select the account
+  supported default unless the user confirms a working model.
 
 ## Core Behavior
 
@@ -54,6 +56,10 @@ them. Do not rotate or load-balance between providers.
 - Run logs intentionally include the generated prompt and bounded stdout/stderr
   response text so provider failures can be diagnosed from the JSONL log.
 - Keep captured provider output bounded by `max_output_bytes`.
+- Console logs should print parsed provider summaries, not raw provider JSON.
+  Claude Code JSON exposes `result`, `usage`, `total_cost_usd`, and `modelUsage`.
+  Codex failures often include `ERROR: {json}` lines in stderr; parse those for
+  status and message when present.
 - `tracing_subscriber::fmt` currently emits process logs to stdout, so CLI
   integration tests that assert live warning output should inspect stdout.
 - Reject `ANTHROPIC_API_KEY` and `OPENAI_API_KEY` in subscription mode.

@@ -13,7 +13,6 @@ providers:
   codex:
     enabled: true
     command: codex
-    model: gpt-5-nano
     timeout: 60s
     max_output_bytes: 16384
 

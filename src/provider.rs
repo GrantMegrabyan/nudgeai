@@ -1,7 +1,8 @@
 use crate::{config::ProviderConfig, prompt::GeneratedPrompt};
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::{fs::OpenOptions, io::Write, path::Path, process::Stdio, time::Instant};
 use tokio::{process::Command, time};
 
@@ -20,6 +21,20 @@ pub struct RunRecord {
     pub stderr: String,
     pub stdout_truncated: bool,
     pub stderr_truncated: bool,
+    pub summary: ProviderOutputSummary,
+}
+
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct ProviderOutputSummary {
+    pub response: Option<String>,
+    pub error_message: Option<String>,
+    pub error_status: Option<u64>,
+    pub model: Option<String>,
+    pub input_tokens: Option<u64>,
+    pub output_tokens: Option<u64>,
+    pub cache_creation_input_tokens: Option<u64>,
+    pub cache_read_input_tokens: Option<u64>,
+    pub total_cost_usd: Option<f64>,
 }
 
 pub async fn run_provider(
@@ -51,10 +66,16 @@ pub async fn run_provider(
                         .map_or_else(|| "signal".to_string(), |code| code.to_string())
                 ))
             },
-            stdout: command_result.stdout,
-            stderr: command_result.stderr,
+            stdout: command_result.stdout.clone(),
+            stderr: command_result.stderr.clone(),
             stdout_truncated: command_result.stdout_truncated,
             stderr_truncated: command_result.stderr_truncated,
+            summary: summarize_output(
+                name,
+                &command_result.stdout,
+                &command_result.stderr,
+                config.model.as_deref(),
+            ),
         },
         Err(error) => RunRecord {
             timestamp: Utc::now(),
@@ -70,7 +91,126 @@ pub async fn run_provider(
             stderr: String::new(),
             stdout_truncated: false,
             stderr_truncated: false,
+            summary: ProviderOutputSummary {
+                error_message: Some(error.to_string()),
+                model: config.model.clone(),
+                ..ProviderOutputSummary::default()
+            },
         },
+    }
+}
+
+pub fn summarize_output(
+    provider: &str,
+    stdout: &str,
+    stderr: &str,
+    requested_model: Option<&str>,
+) -> ProviderOutputSummary {
+    match provider {
+        "claude" => summarize_claude(stdout, stderr, requested_model),
+        "codex" => summarize_codex(stdout, stderr, requested_model),
+        _ => ProviderOutputSummary {
+            response: non_empty(stdout),
+            error_message: non_empty(stderr),
+            model: requested_model.map(ToString::to_string),
+            ..ProviderOutputSummary::default()
+        },
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct ClaudeUsage {
+    input_tokens: Option<u64>,
+    output_tokens: Option<u64>,
+    cache_creation_input_tokens: Option<u64>,
+    cache_read_input_tokens: Option<u64>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ClaudeResult {
+    result: Option<String>,
+    api_error_status: Option<u64>,
+    total_cost_usd: Option<f64>,
+    usage: Option<ClaudeUsage>,
+    #[serde(rename = "modelUsage")]
+    model_usage: Option<serde_json::Map<String, Value>>,
+}
+
+fn summarize_claude(
+    stdout: &str,
+    stderr: &str,
+    requested_model: Option<&str>,
+) -> ProviderOutputSummary {
+    let Ok(parsed) = serde_json::from_str::<ClaudeResult>(stdout) else {
+        return ProviderOutputSummary {
+            response: non_empty(stdout),
+            error_message: non_empty(stderr),
+            model: requested_model.map(ToString::to_string),
+            ..ProviderOutputSummary::default()
+        };
+    };
+
+    let usage = parsed.usage;
+    ProviderOutputSummary {
+        response: parsed.result,
+        error_message: non_empty(stderr),
+        error_status: parsed.api_error_status,
+        model: parsed
+            .model_usage
+            .as_ref()
+            .and_then(|usage| usage.keys().next().cloned())
+            .or_else(|| requested_model.map(ToString::to_string)),
+        input_tokens: usage.as_ref().and_then(|usage| usage.input_tokens),
+        output_tokens: usage.as_ref().and_then(|usage| usage.output_tokens),
+        cache_creation_input_tokens: usage
+            .as_ref()
+            .and_then(|usage| usage.cache_creation_input_tokens),
+        cache_read_input_tokens: usage
+            .as_ref()
+            .and_then(|usage| usage.cache_read_input_tokens),
+        total_cost_usd: parsed.total_cost_usd,
+    }
+}
+
+fn summarize_codex(
+    stdout: &str,
+    stderr: &str,
+    requested_model: Option<&str>,
+) -> ProviderOutputSummary {
+    let parsed_error = parse_codex_error(stderr);
+    ProviderOutputSummary {
+        response: non_empty(stdout),
+        error_message: parsed_error
+            .as_ref()
+            .and_then(|value| {
+                value
+                    .pointer("/error/message")
+                    .and_then(Value::as_str)
+                    .or_else(|| value.pointer("/detail").and_then(Value::as_str))
+            })
+            .map(ToString::to_string)
+            .or_else(|| non_empty(stderr)),
+        error_status: parsed_error
+            .as_ref()
+            .and_then(|value| value.pointer("/status").and_then(Value::as_u64)),
+        model: requested_model.map(ToString::to_string),
+        ..ProviderOutputSummary::default()
+    }
+}
+
+fn parse_codex_error(stderr: &str) -> Option<Value> {
+    stderr.lines().rev().find_map(|line| {
+        let json = line.strip_prefix("ERROR: ")?;
+        serde_json::from_str::<Value>(json).ok()
+    })
+}
+
+fn non_empty(value: &str) -> Option<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
     }
 }
 
@@ -160,4 +300,50 @@ pub fn provider_binaries_exist(providers: Vec<(&'static str, &ProviderConfig)>) 
             .with_context(|| format!("provider {name} command not found: {}", provider.command))?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn summarizes_claude_json_result() {
+        let stdout = r#"{
+            "result": "The number after 91 is 92.",
+            "total_cost_usd": 0.0508975,
+            "usage": {
+                "input_tokens": 10,
+                "output_tokens": 583,
+                "cache_creation_input_tokens": 38378,
+                "cache_read_input_tokens": 0
+            },
+            "modelUsage": {
+                "claude-haiku-4-5-20251001": {"costUSD": 0.0508975}
+            }
+        }"#;
+
+        let summary = summarize_output("claude", stdout, "", Some("fallback"));
+        assert_eq!(
+            summary.response.as_deref(),
+            Some("The number after 91 is 92.")
+        );
+        assert_eq!(summary.model.as_deref(), Some("claude-haiku-4-5-20251001"));
+        assert_eq!(summary.input_tokens, Some(10));
+        assert_eq!(summary.output_tokens, Some(583));
+        assert_eq!(summary.cache_creation_input_tokens, Some(38378));
+        assert_eq!(summary.total_cost_usd, Some(0.0508975));
+    }
+
+    #[test]
+    fn summarizes_codex_error_json() {
+        let stderr = r#"OpenAI Codex v0.133.0
+ERROR: {"type":"error","status":400,"error":{"type":"invalid_request_error","message":"The model is not supported."}}"#;
+
+        let summary = summarize_output("codex", "", stderr, None);
+        assert_eq!(
+            summary.error_message.as_deref(),
+            Some("The model is not supported.")
+        );
+        assert_eq!(summary.error_status, Some(400));
+    }
 }
