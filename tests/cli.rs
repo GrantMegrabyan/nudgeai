@@ -47,6 +47,7 @@ providers:
   codex:
     enabled: true
     command: {}
+    model: gpt-5.4-mini
     timeout: 5s
     max_output_bytes: 1024
 runtime:
@@ -110,8 +111,7 @@ fn run_once_calls_all_enabled_providers_and_logs_prompt_and_response() {
     let claude_args = fs::read_to_string(calls_dir.join("claude")).unwrap();
     let codex_args = fs::read_to_string(calls_dir.join("codex")).unwrap();
     assert!(claude_args.contains("--model claude-haiku-4-5-20251001 -p"));
-    assert!(codex_args.starts_with("exec "));
-    assert!(!codex_args.contains("--model"));
+    assert!(codex_args.contains("--model gpt-5.4-mini exec"));
 
     let log = fs::read_to_string(log_path).unwrap();
     assert!(log.contains("\"provider\":\"claude\""));

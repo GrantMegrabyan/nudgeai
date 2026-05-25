@@ -90,7 +90,7 @@ impl Default for ProvidersConfig {
             codex: ProviderConfig {
                 enabled: true,
                 command: "codex".to_string(),
-                model: None,
+                model: Some("gpt-5.4-mini".to_string()),
                 ..ProviderConfig::default()
             },
         }
@@ -164,7 +164,7 @@ impl Config {
             }
             if name == "codex" && provider.model.as_deref() == Some("gpt-5-nano") {
                 bail!(
-                    "provider codex model gpt-5-nano is not supported with ChatGPT account auth; remove the model field to use Codex's account-supported default"
+                    "provider codex model gpt-5-nano is not supported with ChatGPT account auth; use gpt-5.4-mini or remove the model field"
                 );
             }
             if provider.timeout.is_zero() {
@@ -289,7 +289,10 @@ mod tests {
             config.providers.claude.model.as_deref(),
             Some("claude-haiku-4-5-20251001")
         );
-        assert_eq!(config.providers.codex.model.as_deref(), None);
+        assert_eq!(
+            config.providers.codex.model.as_deref(),
+            Some("gpt-5.4-mini")
+        );
     }
 
     #[test]

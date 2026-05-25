@@ -9,12 +9,12 @@ designed for subscription login flows, not API keys.
 By default it pins the cheapest configured provider tiers:
 
 - Claude: `claude-haiku-4-5-20251001`
-- Codex: no explicit model, so Codex uses the default supported by the signed-in
-  ChatGPT account
+- Codex: `gpt-5.4-mini`
 
 You can override either value in `config.yaml` with the provider `model` field.
 Do not set Codex to `gpt-5-nano` when using ChatGPT account auth; Codex rejects
-that API model for subscription-backed sessions.
+that API model for subscription-backed sessions. OpenAI documents GPT-5.4 mini
+as available in Codex and ChatGPT, while nano is API-only.
 
 ## Defaults
 

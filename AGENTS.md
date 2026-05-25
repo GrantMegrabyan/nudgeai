@@ -14,9 +14,9 @@ Default provider models should stay on the cheapest practical tiers unless the
 user explicitly changes them:
 
 - Claude Code: `claude-haiku-4-5-20251001`
-- OpenAI Codex CLI: no explicit model by default. ChatGPT-account auth rejects
-  API-style cheap models such as `gpt-5-nano`, so let Codex select the account
-  supported default unless the user confirms a working model.
+- OpenAI Codex CLI: `gpt-5.4-mini`. ChatGPT-account auth rejects API-only cheap
+  models such as `gpt-5-nano`; OpenAI documents GPT-5.4 mini as available in
+  Codex and ChatGPT, while nano is API-only.
 
 ## Core Behavior
 
