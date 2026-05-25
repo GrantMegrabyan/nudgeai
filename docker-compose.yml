@@ -1,0 +1,20 @@
+services:
+  nudgeai:
+    build: .
+    container_name: nudgeai
+    restart: unless-stopped
+    environment:
+      NUDGEAI_CONFIG: /etc/nudgeai/config.yaml
+      NUDGEAI_LOG_LEVEL: info
+    volumes:
+      - ./config.example.yaml:/etc/nudgeai/config.yaml:ro
+      - nudgeai-state:/var/lib/nudgeai
+      - nudgeai-logs:/var/log/nudgeai
+      - nudgeai-root-config:/root/.config
+      - nudgeai-claude:/root/.claude
+
+volumes:
+  nudgeai-state:
+  nudgeai-logs:
+  nudgeai-root-config:
+  nudgeai-claude:

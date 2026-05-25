@@ -1,0 +1,28 @@
+schedule:
+  interval: 1h
+  jitter_percent: 20
+  minimum_interval: 30m
+
+providers:
+  claude:
+    enabled: true
+    command: claude
+    timeout: 60s
+    max_output_bytes: 16384
+  codex:
+    enabled: true
+    command: codex
+    timeout: 60s
+    max_output_bytes: 16384
+
+runtime:
+  state_path: /var/lib/nudgeai/daemon-state.json
+  run_log_path: /var/log/nudgeai/runs.jsonl
+
+prompts:
+  - id: tiny_fact
+    text: "Reply with exactly one short sentence containing a harmless fact about {{topic}}."
+  - id: tiny_transform
+    text: "Reply with exactly one short sentence that rewrites '{{word}}' in a {{style}} tone."
+  - id: tiny_count
+    text: "Reply with exactly one short sentence naming the number after {{number}}."

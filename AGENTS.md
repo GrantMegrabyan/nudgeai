@@ -1,0 +1,85 @@
+# NudgeAI Agent Notes
+
+## Project Intent
+
+NudgeAI is a Rust CLI and Dockerized daemon that periodically sends a tiny,
+randomized, benign prompt to every enabled subscription-backed AI CLI provider.
+The initial providers are Claude Code and OpenAI Codex CLI.
+
+The project must use subscription login state, not OpenAI or Anthropic API keys.
+Provider CLIs are external executables; do not call private provider APIs or try
+to reverse-engineer subscription internals.
+
+## Core Behavior
+
+- `nudgeai run-once` executes one nudge cycle.
+- `nudgeai daemon` runs the built-in jittered scheduler.
+- `nudgeai validate-config` validates config and provider binaries.
+- `nudgeai healthcheck` validates config, provider binaries, and daemon state
+  freshness without sending prompts.
+- `nudgeai init-auth` explains the Docker auth bootstrap flow.
+
+Default schedule:
+
+```yaml
+schedule:
+  interval: 1h
+  jitter_percent: 20
+  minimum_interval: 30m
+```
+
+This creates delays from 48 minutes to 1 hour 12 minutes by default. The
+30-minute guardrail prevents accidental overly-frequent scheduling.
+
+When multiple providers are enabled, each scheduled cycle must nudge all of
+them. Do not rotate or load-balance between providers.
+
+## Implementation Constraints
+
+- Language: Rust.
+- Prefer small, explicit modules over broad abstractions.
+- Do not shell-interpolate provider commands; use structured process arguments.
+- Keep logs metadata-only by default: provider, timestamps, prompt hash/template
+  id, duration, exit code, and error category.
+- Do not store full prompts or provider responses unless a future explicit debug
+  mode is added.
+- Reject `ANTHROPIC_API_KEY` and `OPENAI_API_KEY` in subscription mode.
+- Healthchecks must not send provider prompts and must not require network
+  access.
+
+## Docker Context
+
+Docker deployment uses persistent volumes for:
+
+- daemon state
+- metadata logs
+- provider subscription login state
+
+Auth bootstrap should happen with:
+
+```sh
+docker compose run --rm nudgeai init-auth
+docker compose run --rm --entrypoint claude nudgeai auth login
+docker compose run --rm --entrypoint codex nudgeai login
+```
+
+The provider login commands run inside the container so the named volumes keep
+the authenticated state.
+
+## Standing Instructions
+
+1. Always git commit a meaningful chunk of work when it is finished without
+   asking first.
+2. Continuously capture all learnings in this file when they are relevant for
+   future agents working on the project.
+
+## Validation
+
+Before committing implementation work, run:
+
+```sh
+cargo test
+cargo build
+```
+
+For Docker-related changes, also run a Docker build when practical.
